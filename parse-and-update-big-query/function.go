@@ -22,32 +22,44 @@ type EnvDeviceData struct {
 	relative_humidity    string
 	fan_status_internal  string
 	fan_status_exhaust   string
-	room_temp            float32
+	room_temp            float64
 	time_stamp           bigquery.NullTimestamp
-	relative_humidity_rh float32
+	relative_humidity_rh float64
+}
+
+func (i *EnvDeviceData) Save() (map[string]bigquery.Value, string, error) {
+	return map[string]bigquery.Value{
+		"env_type":             i.env_type,
+		"relative_humidity":    i.relative_humidity,
+		"fan_status_internal":  i.fan_status_internal,
+		"fan_status_exhaust":   i.fan_status_exhaust,
+		"room_temp":            i.room_temp,
+		"time_stamp":           i.time_stamp,
+		"relative_humidity_rh": i.relative_humidity_rh,
+	}, bigquery.NoDedupeID, nil
 }
 
 type Aquaponics struct {
-	aquaculture_water_level float32
-	reservoir_water_level   float32
-	water_temperature       float32
-	water_ph                float32
-	tds                     float32
+	aquaculture_water_level float64
+	reservoir_water_level   float64
+	water_temperature       float64
+	water_ph                float64
+	tds                     float64
 	circulation_pump_status string
 	reservoir_pump_status   string
 	time_stamp              civil.DateTime
 }
 
 type Earthworms struct {
-	soil_temperature float32
-	soil_ph          float32
-	lighting_level   float32
+	soil_temperature float64
+	soil_ph          float64
+	lighting_level   float64
 	time_stamp       civil.DateTime
 }
 
 type Mushrooms struct {
 	sprinkler_status string
-	lighting_level   float32
+	lighting_level   float64
 	time_stamp       civil.DateTime
 }
 
@@ -111,8 +123,8 @@ func saveEnvData(data ParseData) {
 	envData.fan_status_internal = data["fan-status-internal"].(string)
 	//envData.relative_humidity = data["relative-humidity"].(string)
 	envData.relative_humidity = "87"
-	envData.relative_humidity_rh = data["relative-humidity"].(float32)
-	envData.room_temp = data["room-temp"].(float32)
+	envData.relative_humidity_rh = data["relative-humidity"].(float64)
+	envData.room_temp = data["room-temp"].(float64)
 	envData.time_stamp = createTimeStamp()
 	log.Println(envData)
 	log.Println("inserting data")

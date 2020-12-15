@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/bigquery"
-	"cloud.google.com/go/civil"
 )
 
 // PubSubMessage is the payload of a Pub/Sub event. Please refer to the docs for
@@ -47,20 +46,50 @@ type Aquaponics struct {
 	tds                     float64
 	circulation_pump_status string
 	reservoir_pump_status   string
-	time_stamp              civil.DateTime
+	time_stamp              bigquery.NullTimestamp
+}
+
+func (i *Aquaponics) Save() (map[string]bigquery.Value, string, error) {
+	return map[string]bigquery.Value{
+		"aquaculture_water_level": i.aquaculture_water_level,
+		"reservoir_water_level":   i.reservoir_water_level,
+		"water_temperature":       i.water_temperature,
+		"water_ph":                i.water_ph,
+		"tds":                     i.tds,
+		"circulation_pump_status": i.circulation_pump_status,
+		"reservoir_pump_status":   i.reservoir_pump_status,
+		"time_stamp":              i.time_stamp,
+	}, bigquery.NoDedupeID, nil
 }
 
 type Earthworms struct {
 	soil_temperature float64
 	soil_ph          float64
 	lighting_level   float64
-	time_stamp       civil.DateTime
+	time_stamp       bigquery.NullTimestamp
+}
+
+func (i *Earthworms) Save() (map[string]bigquery.Value, string, error) {
+	return map[string]bigquery.Value{
+		"soil_temperature": i.soil_temperature,
+		"soil_ph":          i.soil_ph,
+		"lighting_level":   i.lighting_level,
+		"time_stamp":       i.time_stamp,
+	}, bigquery.NoDedupeID, nil
 }
 
 type Mushrooms struct {
 	sprinkler_status string
 	lighting_level   float64
-	time_stamp       civil.DateTime
+	time_stamp       bigquery.NullTimestamp
+}
+
+func (i *Mushrooms) Save() (map[string]bigquery.Value, string, error) {
+	return map[string]bigquery.Value{
+		"sprinkler_status": i.sprinkler_status,
+		"lighting_level":   i.lighting_level,
+		"time_stamp":       i.time_stamp,
+	}, bigquery.NoDedupeID, nil
 }
 
 type Data interface{}
@@ -80,13 +109,21 @@ func HelloPubSub(ctx context.Context, m PubSubMessage) error {
 	if deviceType == "env-device" {
 		log.Println("saving data for env device")
 		saveEnvData(jsonData)
+	} else if deviceType == "aquaponics-device" {
+		log.Println("saving data for aquaponics device")
+		saveAquaponicsData(jsonData)
+	} else if deviceType == "mushrooms-device" {
+		log.Println("saving data for mushrooms device")
+		saveMushroomsData(jsonData)
+	} else if deviceType == "earthworms-device" {
+		log.Println("saving data for earthworms device")
+		saveEarthwormsData(jsonData)
 	}
 	return nil
 }
 
 // InsertData inserts data into bigquery
 func insertData(table string, data Data) {
-	log.Println("inside insert data")
 	ctx := context.Background()
 	client, err := bigquery.NewClient(ctx, "poc-cloudfaringpirates-797995")
 	if err != nil {
@@ -94,12 +131,6 @@ func insertData(table string, data Data) {
 		log.Fatalln(err)
 	}
 	ins := client.Dataset("sustainable_farming").Table(table).Inserter()
-	// // Item implements the ValueSaver interface.
-	// items := []*Item{
-	// 	{Name: "n1", Size: 32.6, Count: 7},
-	// 	{Name: "n2", Size: 4, Count: 2},
-	// 	{Name: "n3", Size: 101.5, Count: 1},
-	// }
 
 	if err := ins.Put(ctx, data); err != nil {
 		// TODO: Handle error.
@@ -109,7 +140,7 @@ func insertData(table string, data Data) {
 
 func createTimeStamp() bigquery.NullTimestamp {
 	retVal := bigquery.NullTimestamp{}
-	retVal.Timestamp = time.Now()
+	retVal.Timestamp = time.Now().UTC()
 	retVal.Valid = true
 	return retVal
 }
@@ -130,5 +161,54 @@ func saveEnvData(data ParseData) {
 	log.Println("inserting data")
 
 	insertData("environment", envData)
+	log.Println("insert done")
+}
+
+func saveAquaponicsData(data ParseData) {
+	log.Println("inside saveAquaponicsData function")
+	log.Println(data)
+	aquaponicsData := &Aquaponics{}
+	aquaponicsData.aquaculture_water_level = data["aquaculture-water-level"].(float64)
+	aquaponicsData.circulation_pump_status = data["circulation-pump-status"].(string)
+	aquaponicsData.reservoir_pump_status = data["reservoir-pump-status"].(string)
+	//envData.relative_humidity = data["relative-humidity"].(string)
+	aquaponicsData.reservoir_water_level = data["reservoir-water-level"].(float64)
+	aquaponicsData.tds = data["tds"].(float64)
+	aquaponicsData.water_ph = data["water-ph"].(float64)
+	aquaponicsData.water_temperature = data["water-temperature"].(float64)
+	aquaponicsData.time_stamp = createTimeStamp()
+	log.Println(aquaponicsData)
+	log.Println("inserting data")
+
+	insertData("aquaponics", aquaponicsData)
+	log.Println("insert done")
+}
+
+func saveMushroomsData(data ParseData) {
+	log.Println("inside savemushroomsData function")
+	log.Println(data)
+	mushroomsData := &Mushrooms{}
+	mushroomsData.lighting_level = data["lighting-level"].(float64)
+	mushroomsData.sprinkler_status = data["sprinkler-status"].(string)
+	mushroomsData.time_stamp = createTimeStamp()
+	log.Println(mushroomsData)
+	log.Println("inserting data")
+
+	insertData("mushrooms", mushroomsData)
+	log.Println("insert done")
+}
+
+func saveEarthwormsData(data ParseData) {
+	log.Println("inside saveEarthwormsData function")
+	log.Println(data)
+	mushroomsData := &Earthworms{}
+	mushroomsData.lighting_level = data["lighting-level"].(float64)
+	mushroomsData.soil_ph = data["soil-ph"].(float64)
+	mushroomsData.soil_temperature = data["soil-temperature"].(float64)
+	mushroomsData.time_stamp = createTimeStamp()
+	log.Println(mushroomsData)
+	log.Println("inserting data")
+
+	insertData("earthworms", mushroomsData)
 	log.Println("insert done")
 }
